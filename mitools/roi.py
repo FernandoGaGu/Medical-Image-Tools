@@ -11,6 +11,7 @@ import multiprocessing as mp
 import joblib
 import warnings
 from typing import List
+from nilearn.input_data import NiftiLabelsMasker
 
 from .nifti import loadImg
 from .decorator import ignore_warning
@@ -87,7 +88,7 @@ def extractROIs(
             raise TypeError(
                 f'Aggregation strategy {agg} not found. Available strategies are {AVAILABLE_AGGREGATIONS}')
 
-        masker = nl.input_data.NiftiLabelsMasker(
+        masker = NiftiLabelsMasker(
             labels_img=atlas_loader.maps, standardize=False, strategy='standard_deviation' if agg == 'std' else agg)
 
         if n_jobs == 1:
@@ -97,7 +98,6 @@ def extractROIs(
                 joblib.Parallel(n_jobs=n_jobs, backend='loky')(
                     joblib.delayed(__worker__)(img, masker, n) for n, img in enumerate(images)))
         roi_values_df = pd.DataFrame(roi_values).T
-        return roi_values_df
         # Add prefix when several aggregations are provided
         if len(aggregate) == 1:
             roi_values_df.columns = [label.lower() for label in atlas_loader.labels]
