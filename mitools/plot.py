@@ -55,7 +55,7 @@ def render(img: nibabel.nifti1.Nifti1Image or NiftiContainer, backend: str = 'dy
         use the 90-th percentile of the absolute value in the image. If a number is given, it is used to threshold the
         image: values below the threshold (in absolute value) are plotted as transparent. If auto is given, the
         threshold is determined automatically. Only available for "dynamic" backend. Defaults to 1e-06.
-    :param tuple figsize: figure size. nly available for "static" backend. Defaults to (20, 6).
+    :param tuple figsize: figure size. Only available for "static" backend. Defaults to (20, 6).
     :param str save_html: save the visualization as html. Only available for "dynamic" backend. Defaults to None.
     :param bool open_in_browser: Open the visualization in a browser. Only available for "dynamic" backend.
         Defaults to False.
@@ -87,6 +87,7 @@ def render(img: nibabel.nifti1.Nifti1Image or NiftiContainer, backend: str = 'dy
         nl_plotting.plot_stat_map(
             img, bg_img=img, axes=ax, title=title, vmax=vmax, cmap=nilearn_cmaps[cmap], colorbar=colorbar,
             cut_coords=cut_coords, annotate=annotate)
+        plt.show()
     elif backend == 'dynamic':
         html_view = nl_plotting.view_img(
             img, bg_img=img, cut_coords=cut_coords, title=title, annotate=annotate, vmax=vmax,
