@@ -65,6 +65,15 @@ def resample(img: nibabel.nifti1.Nifti1Image, reference: nibabel.nifti1.Nifti1Im
     return nl_image.resample_img(img, img.affine, target_shape=reference_shape, interpolation=interpolation)
 
 
+def smooth(img: nibabel.nifti1.Nifti1Image, fwhm: int or float or np.ndarray) -> nibabel.nifti1.Nifti1Image:
+    """ Function that allows to apply a FHWR smooth to the image. """
+    checkMultiInputTypes(
+        ('img', img, [nibabel.nifti1.Nifti1Image]),
+        ('fwhm', fwhm, [int, float, np.ndarray]))
+
+    return nl_image.smooth_img(img, fwhm)
+
+
 def resampleVoxelSize(img: nibabel.nifti1.Nifti1Image, voxel_size: int or float or tuple,
                       interpolation: str = DEFAULT_RESAMPLE_INTERPOLATION_METHOD) -> nibabel.nifti1.Nifti1Image:
     """ Function to rescale the image voxels to a certain size. """

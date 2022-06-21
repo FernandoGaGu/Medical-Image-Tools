@@ -259,14 +259,15 @@ def resampleToImg(img: NiftiContainer, reference: nibabel.nifti1.Nifti1Image or 
     return img.newImgFromProcess(resampled_img, 'resampleToImg')
 
 
-def resampleVoxelSize(img: NiftiContainer, voxel_size: int or tuple, inplace: bool = False) -> NiftiContainer:
+def resampleVoxelSize(img: NiftiContainer, voxel_size: int or tuple, inplace: bool = False,
+                      interpolation: str = DEFAULT_RESAMPLE_INTERPOLATION_METHOD) -> NiftiContainer:
     """ Wrapper of mitools.util.nifti.resampleVoxelSize() operating on mitools.image.NiftiContainer instances. """
     checkInputType('img', img, [NiftiContainer])
 
     img = img.copy() if not inplace else img
 
     # Resample voxels size
-    resampled_img = nifti.resampleVoxelSize(img.nifti_img, voxel_size)
+    resampled_img = nifti.resampleVoxelSize(img.nifti_img, voxel_size, interpolation=interpolation)
 
     return img.newImgFromProcess(resampled_img, 'resampleVoxelSize')
 
@@ -318,3 +319,16 @@ def mapFunctionToImg(img: list or NiftiContainer, function: callable, n_jobs: in
         output_imgs.append(NiftiContainer.fromData(data=data, ref_image=imgs[index].nifti_img))
 
     return output_imgs
+
+
+def smooth(img: NiftiContainer, fwhm: int or float or np.ndarray) -> NiftiContainer:
+    """ Function that allows to apply a FHWR smooth to the input image(s). """
+    # Check input types
+    checkMultiInputTypes(
+        ('img', img, [NiftiContainer]),
+        ('fwhm', fwhm, [int, float, np.ndarray]))
+
+    nifti_smoothed_img = nifti.smooth(img=img.nifti_img, fwhm=fwhm)
+    smoothed_img = img.newImgFromProcess(img=nifti_smoothed_img, process=f'smooth(fwhm={fwhm})')
+
+    return smoothed_img

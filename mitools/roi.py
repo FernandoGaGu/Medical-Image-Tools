@@ -12,8 +12,9 @@ import joblib
 import warnings
 from typing import List
 from nilearn.input_data import NiftiLabelsMasker
+from tqdm import tqdm
 
-from .nifti import loadImg
+from . import nifti
 from .decorator import ignore_warning
 from .validation import (
     checkMultiInputTypes,
@@ -52,11 +53,14 @@ class ReferenceROI(object):
 @ignore_warning
 def extractROIs(
         images: List[nibabel.nifti1.Nifti1Image or NiftiContainer] or nibabel.nifti1.Nifti1Image or NiftiContainer,
-        atlas: str, aggregate: str or list = 'mean', atlas_kw: dict = None, n_jobs: int = 1) -> pd.DataFrame:
+        atlas: str, aggregate: str or list = 'mean', atlas_kw: dict = None, n_jobs: int = 1,
+        verbose: bool = False) -> pd.DataFrame:
     """ Function that allows to extract the ROI values in a pandas DataFrame from the input images. """
-    def __worker__(_img, _masker, _n):
+    def __worker__(_img, _ref_img, _masker, _n):
         if isinstance(_img, NiftiContainer):
             _img = _img.nifti_img
+        # resample the target image to match the atlas image
+        _img = nifti.resampleToImg(_img, _ref_img.nifti_img, interpolation='continuous')
         return _n, _masker.fit_transform(_img).squeeze(0)
 
     checkMultiInputTypes(
@@ -76,6 +80,7 @@ def extractROIs(
         raise TypeError('n_jobs must be greater than 0 or -1.')
 
     atlas_loader = ATLASES[atlas](**atlas_kw)
+    atlas_img = NiftiContainer(atlas_loader.maps)
     aggregate = [aggregate] if not isinstance(aggregate, list) else aggregate
     images = [images] if not isinstance(images, list) else images
 
@@ -91,13 +96,15 @@ def extractROIs(
         masker = NiftiLabelsMasker(
             labels_img=atlas_loader.maps, standardize=False, strategy='standard_deviation' if agg == 'std' else agg)
 
+        iterator = tqdm(enumerate(images), desc='Extracting ROIs...') if verbose else enumerate(images)
+
         if n_jobs == 1:
-            roi_values = dict(__worker__(img, masker, n) for n, img in enumerate(images))
+            roi_values = dict(__worker__(img, atlas_img, masker, n) for n, img in iterator)
         else:
             roi_values = dict(
                 joblib.Parallel(n_jobs=n_jobs, backend='loky')(
-                    joblib.delayed(__worker__)(img, masker, n) for n, img in enumerate(images)))
-        roi_values_df = pd.DataFrame(roi_values).T
+                    joblib.delayed(__worker__)(img, atlas_img, masker, n) for n, img in iterator))
+        roi_values_df = pd.DataFrame(roi_values).T.sort_index()
         # Add prefix when several aggregations are provided
         if len(aggregate) == 1:
             roi_values_df.columns = [label.lower() for label in atlas_loader.labels]
@@ -124,7 +131,7 @@ def getAtlasNumVoxels(atlas: str, atlas_kw: dict = None) -> pd.DataFrame:
         warnings.warn(
             'This function has only been tested for the AAL atlas. Unexpected behaviour may occur for other atlases.')
     atlas_loader = ATLASES[atlas](**atlas_kw)
-    atlas_data = loadImg(atlas_loader.maps).get_fdata()
+    atlas_data = nifti.loadImg(atlas_loader.maps).get_fdata()
     region_id, region_count = np.unique(atlas_data, return_counts=True)
     num_voxels = pd.DataFrame(region_count[1:]).T   # Exclude first region count (not brain regions, checked)
     num_voxels.columns = [label.lower() for label in atlas_loader.labels]
@@ -134,7 +141,8 @@ def getAtlasNumVoxels(atlas: str, atlas_kw: dict = None) -> pd.DataFrame:
 
 def extractROIVoxels(
         images: List[nibabel.nifti1.Nifti1Image or NiftiContainer or CachedNiftiContainer] or nibabel.nifti1.Nifti1Image,
-        atlas: str, roi: str, atlas_kw: dict = None, clear_cache: bool = False, n_jobs: int = 1) -> pd.DataFrame:
+        atlas: str, roi: str, atlas_kw: dict = None, clear_cache: bool = False, n_jobs: int = 1,
+        verbose: bool = False) -> pd.DataFrame:
     """ Function that allows to extract all the metabolism values of a given ROI belonging to the specified brain
     atlas. """
     def __worker__(_img: nibabel.nifti1.Nifti1Image or CachedNiftiContainer or NiftiContainer, _roi_locator: int,
@@ -200,7 +208,7 @@ def extractROIVoxels(
     if roi not in atlas_rois:
         raise TypeError(f'ROI {roi} not found in atlas {atlas} ROIs ({atlas_rois})')
 
-    atlas_nifti = loadImg(atlas_loader.maps)
+    atlas_nifti = nifti.loadImg(atlas_loader.maps)
     atlas_data = np.array(atlas_nifti.get_fdata()).astype(int)
     unique_atlas_values = np.unique(atlas_data)
     assert len(unique_atlas_values) > len(atlas_rois), \
@@ -210,18 +218,19 @@ def extractROIVoxels(
     # +1 because 0 index correspond to out of the brain voxels
     roi_locator = np.unique(atlas_data)[atlas_rois.index(roi) + 1]
 
+    iterator = tqdm(enumerate(images), desc='Extracting voxels...') if verbose else enumerate(images)
     if n_jobs == 1:
         df = dict([
             __worker__(_img=img, _roi_locator=roi_locator, _atlas_nifti=atlas_nifti, _atlas_data=atlas_data,
                        _n=n, _clear_cache=clear_cache)
-            for n, img in enumerate(images)])
+            for n, img in iterator])
     else:
         df = dict(
             joblib.Parallel(n_jobs=n_jobs, backend='loky')(
                 joblib.delayed(__worker__)(
                     _img=img, _roi_locator=roi_locator, _atlas_nifti=atlas_nifti, _atlas_data=atlas_data,
-                    _n=n, _clear_cache=clear_cache) for n, img in enumerate(images)))
-    df = pd.DataFrame(df).T
+                    _n=n, _clear_cache=clear_cache) for n, img in iterator))
+    df = pd.DataFrame(df).T.sort_index()
     df.columns = ['%s_%d' % (roi, n) for n in range(len(df.columns))]
 
     return df
