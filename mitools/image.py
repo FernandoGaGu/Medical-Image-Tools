@@ -332,3 +332,19 @@ def smooth(img: NiftiContainer, fwhm: int or float or np.ndarray) -> NiftiContai
     smoothed_img = img.newImgFromProcess(img=nifti_smoothed_img, process=f'smooth(fwhm={fwhm})')
 
     return smoothed_img
+
+
+def changeAffine(img: NiftiContainer, affine: np.ndarray) -> NiftiContainer:
+    """ Change the affine transformation of the input image. """
+    # Check input types
+    checkMultiInputTypes(
+        ('img', img, [NiftiContainer]),
+        ('affine', affine, [np.ndarray]))
+
+    mod_img = nifti.changeAffine(img=img.nifti_img, affine=affine)
+    mod_img = img.newImgFromProcess(img=mod_img, process=f'changeAffine(affine={affine})')
+
+    return mod_img
+
+
+
