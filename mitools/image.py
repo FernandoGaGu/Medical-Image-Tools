@@ -12,6 +12,7 @@ import numpy as np
 import multiprocessing as mp
 import nilearn.image as nl_image
 from abc import abstractmethod, ABCMeta
+from typing import List
 
 from . import nifti
 from .util import copy
@@ -345,6 +346,10 @@ def changeAffine(img: NiftiContainer, affine: np.ndarray) -> NiftiContainer:
     mod_img = img.newImgFromProcess(img=mod_img, process=f'changeAffine(affine={affine})')
 
     return mod_img
+
+
+
+
 
 
 

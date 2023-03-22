@@ -34,7 +34,7 @@ from .validation import (
 def render(img: nibabel.nifti1.Nifti1Image or NiftiContainer, backend: str = 'dynamic', title: str = '',
            vmax: float or int = None, vmin: float or int = None, cmap: str = 'cold_hot', colorbar: bool = True,
            cut_coords: tuple or float or int = None, annotate: bool = False, threshold: float = None,
-           figsize: tuple = (20, 6), save_html: str = None, open_in_browser: bool = False, **_):
+           figsize: tuple = (20, 6), save_html: str = None, save_png: str = None, open_in_browser: bool = False, **_):
     """ Function to render nifti images. This function can render images statically (fixed image that cannot be
     interacted with) or dynamically (image that can be interacted with) by selecting the backend as "static" or
     "dynamic" respectively.
@@ -56,6 +56,8 @@ def render(img: nibabel.nifti1.Nifti1Image or NiftiContainer, backend: str = 'dy
         image: values below the threshold (in absolute value) are plotted as transparent. If auto is given, the
         threshold is determined automatically. Only available for "dynamic" backend. Defaults to 1e-06.
     :param tuple figsize: figure size. Only available for "static" backend. Defaults to (20, 6).
+    :param str save_png: save the image as a png image. Only available for "static" backend. When this parameter is set
+        to a value the image will not be displayed. Defaults to None.
     :param str save_html: save the visualization as html. Only available for "dynamic" backend. Defaults to None.
     :param bool open_in_browser: Open the visualization in a browser. Only available for "dynamic" backend.
         Defaults to False.
@@ -87,7 +89,11 @@ def render(img: nibabel.nifti1.Nifti1Image or NiftiContainer, backend: str = 'dy
         nl_plotting.plot_stat_map(
             img, bg_img=img, axes=ax, title=title, vmax=vmax, cmap=nilearn_cmaps[cmap], colorbar=colorbar,
             cut_coords=cut_coords, annotate=annotate)
-        plt.show()
+
+        if save_png is not None:
+            plt.savefig(save_png, dpi=300, format='png')
+        else:
+            plt.show()
     elif backend == 'dynamic':
         html_view = nl_plotting.view_img(
             img, bg_img=img, cut_coords=cut_coords, title=title, annotate=annotate, vmax=vmax,
@@ -106,7 +112,8 @@ def render(img: nibabel.nifti1.Nifti1Image or NiftiContainer, backend: str = 'dy
 def render3D(img: nibabel.nifti1.Nifti1Image or NiftiContainer, rescale: bool = True, isomin: float = 0.05,
              isomax: float = 1.0, opacity: float = 0.3, resolution: int = 10, cmap: str = 'Turbo',
              template: str = 'plotly_white', title: str = '', width: int = 1000, height: int = 800,
-             resample_voxel_size: int or tuple or float = 5, open_in_browser: bool = False, **_):
+             resample_voxel_size: int or tuple or float = 5, open_in_browser: bool = False, show: bool = False,
+             **_):
     """ Function that renders a nifti image in 3 dimensions using plotly as backend.
 
     :param nibabel.nifti1.Nifti1Image or NiftiContainer img: image to be rendered.
@@ -124,6 +131,7 @@ def render3D(img: nibabel.nifti1.Nifti1Image or NiftiContainer, rescale: bool = 
     :param int or float or tuple resample_voxel_size: voxel size to which the image will be resampled. It is
         recommended to keep this value higher to avoid overload the browser. Defaults to 5.
     :param bool open_in_browser: Open the visualization in a browser. Defaults to False.
+    :param bool show: indicates whether to display the figure or not. Defaults to True.
 
     IMPORTANT NOTE: It is recommended to leave the default parameters resample_voxel_size and resolution to reduce the
     display load and avoid breaking the browser.
@@ -177,8 +185,10 @@ def render3D(img: nibabel.nifti1.Nifti1Image or NiftiContainer, rescale: bool = 
         app = dash.Dash()
         app.layout = html.Div([dcc.Graph(figure=fig)])
         app.run_server(debug=True, use_reloader=False)
-    else:
+    elif show:
         fig.show()
+
+    return fig
 
 
 def renderAAL(regions: list, weights: list or np.ndarray = None, default_val: float = 0.0, backend: str = 'render',
@@ -242,7 +252,7 @@ def renderAAL(regions: list, weights: list or np.ndarray = None, default_val: fl
 
     nii_obj = NiftiContainer.fromData(data=aal_template, ref_image=aal_atlas.maps)
 
-    _AVAILABLE_RENDER_BACKENDS[backend](img=nii_obj, **backend_kw)
+    return _AVAILABLE_RENDER_BACKENDS[backend](img=nii_obj, **backend_kw)
 
 
 # Available rendering functions

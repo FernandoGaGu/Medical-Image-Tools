@@ -6,3 +6,4 @@ from . import util
 from . import nifti
 from . import plot
 from . import roi
+from . import connectome
